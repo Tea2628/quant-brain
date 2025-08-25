@@ -1,0 +1,13 @@
+{
+  "symbol": "BTC/USDT",
+  "side": "buy",
+  "size": 0.25,
+  "entry": 60000.0,
+  "tp": 61800.0,
+  "sl": 58800.0,
+  "time_in_force": "GTC",
+  "valid_until": "2025-12-31T23:59:59Z",
+  "rationale": "突破回踩确认，量能放大，遵守风控。",
+  "risks": "宏观事件波动、假突破、滑点扩大。",
+  "tags": ["demo","schema-validated","dry-run"]
+}
