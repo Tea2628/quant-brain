@@ -10,7 +10,6 @@ from .events import bus
 
 app = FastAPI(title="quant-brain BFF Mock", version="0.1")
 
-# CORS（仅内网/白名单，按需补充）
 app.add_middleware(
     CORSMiddleware,
     allow_origins=os.getenv("CORS_WHITELIST","http://localhost:5173,http://127.0.0.1:5173").split(","),
@@ -19,7 +18,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 加载 Proposal Schema 以进行本地校验
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SCHEMA_PATH = os.path.join(ROOT, "schemas", "proposal.schema.json")
 if not os.path.exists(SCHEMA_PATH):
@@ -27,21 +25,18 @@ if not os.path.exists(SCHEMA_PATH):
 SCHEMA = json.loads(open(SCHEMA_PATH, "r", encoding="utf-8").read())
 VALIDATOR = Draft202012Validator(SCHEMA)
 
-# 内存态
 PROPOSALS: Dict[str, Dict[str, Any]] = {}
-APPROVALS: Dict[str, Dict[str, str]] = {}   # {pid: {"dry-1":"approved", ...}}
+APPROVALS: Dict[str, Dict[str, str]] = {}
 EXECUTIONS: Dict[str, Dict[str, Any]] = {}
 AUDITS: Dict[str, Dict[str, Any]] = {}
 
-# 风控参数（Mock）
 BLACKLIST = {"LUNA/USDT", "XYZ/USDT"}
 MAX_SIZE = 0.5
-ALLOW_START_HOUR = 8   # UTC+8
+ALLOW_START_HOUR = 8
 ALLOW_END_HOUR = 22
-ACCOUNT_DRAWDOWN = -0.05  # -5%（当 < -0.10 时拒绝）
+ACCOUNT_DRAWDOWN = -0.05
 
 def now_cst_hour() -> int:
-    # 以 UTC+8 近似
     return int((datetime.utcnow() + timedelta(hours=8)).strftime("%H"))
 
 def schema_validate(data: Dict[str, Any]) -> None:
@@ -78,7 +73,6 @@ def trades(limit: int = Query(20, ge=1, le=200)):
 @app.post("/api/gpt/proposals:from-intent")
 def from_intent(payload: IntentPayload):
     intent = payload.intent.strip()
-    # 简单 Mock：包含“缺口”二字则返回 gaps，否则生成一个合规 Proposal
     if "缺口" in intent or "gaps" in intent.lower():
         gaps = [
             "symbol:str 非空","side:{buy|sell}","size:float(0,1]",
@@ -157,7 +151,6 @@ async def execute(pid: str, mode: str = "dry"):
     audit(pid, "execution.done", {"type":"execution","id":eid}, after=res)
     return res
 
-# WebSocket 事件
 @app.websocket("/ws/events")
 async def ws_events(ws: WebSocket):
     await ws.accept()
@@ -168,3 +161,23 @@ async def ws_events(ws: WebSocket):
             await ws.send_json(event)
     except WebSocketDisconnect:
         bus.unsubscribe(q)
+
+# === patch: normalize datetime for JSON-Schema ===
+import json as _json
+from datetime import datetime as _dt
+
+def _normalize_for_schema(obj):
+    if isinstance(obj, _dt):
+        # 序列化为 ISO8601，并统一加 Z（与 schema 的 date-time 匹配）
+        return obj.replace(tzinfo=None).isoformat() + "Z"
+    if isinstance(obj, dict):
+        return {k: _normalize_for_schema(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_normalize_for_schema(v) for v in obj]
+    return obj
+
+# 覆盖同名函数：先规范化，再交给 JSON-Schema 校验
+def schema_validate(data):
+    payload = _normalize_for_schema(data)
+    payload = _json.loads(_json.dumps(payload, default=str))
+    VALIDATOR.validate(payload)
