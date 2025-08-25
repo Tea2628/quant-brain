@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Trading Proposal",
+  "type": "object",
+  "required": ["symbol","side","size","entry","tp","sl","time_in_force","valid_until","rationale","risks","tags"],
+  "properties": {
+    "symbol": {"type":"string","minLength":1},
+    "side": {"type":"string","enum":["buy","sell"]},
+    "size": {"type":"number","exclusiveMinimum":0,"maximum":1},
+    "entry": {"type":"number","exclusiveMinimum":0},
+    "tp": {"type":"number","exclusiveMinimum":0},
+    "sl": {"type":"number","exclusiveMinimum":0},
+    "time_in_force": {"type":"string","enum":["GTC","IOC","FOK"]},
+    "valid_until": {"type":"string","format":"date-time"},
+    "rationale": {"type":"string","maxLength":120},
+    "risks": {"type":"string","maxLength":120},
+    "tags": {"type":"array","items":{"type":"string"}}
+  }
+}
