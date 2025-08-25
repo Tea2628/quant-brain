@@ -1,14 +1,25 @@
 name: ci
 on: [push, pull_request]
 jobs:
-  lint-and-build:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Validate repo skeleton
+
+      - name: Repo skeleton check
         run: |
           test -f README.md
           test -f SECURITY.md
           test -f CODEOWNERS
           test -f schemas/proposal.schema.json
-          echo "OK"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install deps
+        run: pip install jsonschema
+
+      - name: Schema validate proposals
+        run: python scripts/validate_proposals.py
